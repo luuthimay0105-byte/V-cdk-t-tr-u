@@ -1,85 +1,126 @@
---// ===== VĨ JUMP SCARE MOBILE =====
+--================================================
+--  BEE SWARM SIMULATOR - FULL FPS BOOST
+--  Toggle: F8
+--================================================
 
-local player = game.Players.LocalPlayer
+local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
 local UIS = game:GetService("UserInputService")
 
--------------------------------------------------
--- SPLASH
--------------------------------------------------
-local splash = Instance.new("ScreenGui", game.CoreGui)
-local t = Instance.new("TextLabel", splash)
-t.Size = UDim2.new(1,0,1,0)
-t.BackgroundTransparency = 1
-t.Text = "vĩ địt trâu"
-t.Font = Enum.Font.Arcade
-t.TextScaled = true
-t.TextStrokeTransparency = 0
-task.wait(1)
-splash:Destroy()
+local player = Players.LocalPlayer
+local enabled = true
 
--------------------------------------------------
--- GUI
--------------------------------------------------
-local gui = Instance.new("ScreenGui", game.CoreGui)
+------------------------------------------------
+-- LIGHTING BOOST
+------------------------------------------------
+local function optimizeLighting(state)
+    Lighting.GlobalShadows = not state
+    Lighting.Brightness = state and 1 or 2
+    Lighting.FogEnd = 9e9
 
-local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.fromOffset(300,120)
-frame.Position = UDim2.new(0.1,0,0.6,0)
-frame.BackgroundColor3 = Color3.fromRGB(0,0,0)
-frame.BorderSizePixel = 0
-
--------------------------------------------------
--- DRAG TOUCH (mobile)
--------------------------------------------------
-local dragging=false
-local startPos, startFrame
-
-frame.InputBegan:Connect(function(i)
-	if i.UserInputType==Enum.UserInputType.Touch then
-		dragging=true
-		startPos=i.Position
-		startFrame=frame.Position
-	end
-end)
-
-UIS.InputChanged:Connect(function(i)
-	if dragging and i.UserInputType==Enum.UserInputType.Touch then
-		local d=i.Position-startPos
-		frame.Position=UDim2.new(
-			startFrame.X.Scale,
-			startFrame.X.Offset+d.X,
-			startFrame.Y.Scale,
-			startFrame.Y.Offset+d.Y
-		)
-	end
-end)
-
-UIS.InputEnded:Connect(function()
-	dragging=false
-end)
-
--------------------------------------------------
--- BUTTON MAKER
--------------------------------------------------
-local function btn(text,x,y,w,h,color)
-	local b=Instance.new("TextButton",frame)
-	b.Text=text
-	b.Size=UDim2.fromOffset(w,h)
-	b.Position=UDim2.fromOffset(x,y)
-	b.BackgroundColor3=color
-	b.TextColor3=Color3.new(1,1,1)
-	b.TextScaled=true
-	b.BorderSizePixel=0
-	b.Font=Enum.Font.GothamBold
-	return b
+    for _,v in pairs(Lighting:GetDescendants()) do
+        if v:IsA("PostEffect") then
+            v.Enabled = not state
+        end
+    end
 end
 
-local RED=Color3.fromRGB(200,0,0)
-local BLACK=Color3.fromRGB(20,20,20)
+------------------------------------------------
+-- OBJECT OPTIMIZE
+------------------------------------------------
+local function optimizeObject(obj)
+    if not enabled then return end
 
--------------------------------------------------
--- LAYOUT
--------------------------------------------------
-btn("VĨ JUMP SCARE",0,0,300,30,RED).AutoButtonColor=false
+    if obj:IsA("BasePart") then
+        obj.Material = Enum.Material.Plastic
+        obj.Reflectance = 0
+        obj.CastShadow = false
+    end
 
-local close=btn("
+    if obj:IsA("Texture") or obj:IsA("Decal") then
+        obj:Destroy()
+    end
+
+    if obj:IsA("ParticleEmitter")
+    or obj:IsA("Trail")
+    or obj:IsA("Smoke")
+    or obj:IsA("Fire")
+    or obj:IsA("Sparkles") then
+        obj.Enabled = false
+    end
+end
+
+------------------------------------------------
+-- REMOVE BEES (players khác)
+------------------------------------------------
+local function hideOtherBees()
+    for _,plr in pairs(Players:GetPlayers()) do
+        if plr ~= player and plr.Character then
+            local beesFolder = plr.Character:FindFirstChild("Bees")
+            if beesFolder then
+                beesFolder:Destroy()
+            end
+        end
+    end
+end
+
+------------------------------------------------
+-- REMOVE TOKENS / EFFECTS
+------------------------------------------------
+local function removeTokens()
+    for _,v in pairs(workspace:GetDescendants()) do
+        local name = string.lower(v.Name)
+
+        if name:find("token")
+        or name:find("pollen")
+        or name:find("sparkle")
+        or name:find("effect") then
+            if v:IsA("BasePart") or v:IsA("Model") then
+                v:Destroy()
+            end
+        end
+    end
+end
+
+------------------------------------------------
+-- APPLY ALL
+------------------------------------------------
+local function applyBoost()
+    optimizeLighting(true)
+
+    for _,v in pairs(workspace:GetDescendants()) do
+        optimizeObject(v)
+    end
+
+    hideOtherBees()
+    removeTokens()
+
+    workspace.DescendantAdded:Connect(optimizeObject)
+
+    settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+end
+
+------------------------------------------------
+-- TOGGLE KEY (F8)
+------------------------------------------------
+UIS.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+
+    if input.KeyCode == Enum.KeyCode.F8 then
+        enabled = not enabled
+
+        if enabled then
+            applyBoost()
+            print("✅ FPS BOOST ON")
+        else
+            optimizeLighting(false)
+            print("❌ FPS BOOST OFF (rejoin to fully restore)")
+        end
+    end
+end)
+
+------------------------------------------------
+-- START
+------------------------------------------------
+applyBoost()
+print("🚀 Bee Swarm FPS Boost Loaded | Press F8 to toggle")
