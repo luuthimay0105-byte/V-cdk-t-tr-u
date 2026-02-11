@@ -1,126 +1,180 @@
---================================================
---  BEE SWARM SIMULATOR - FULL FPS BOOST
---  Toggle: F8
---================================================
+--// =========================================
+--// 🔥 NGDKHANH AIMBOT HEAD LOCK GUI 🔥
+--// =========================================
 
+repeat task.wait() until game:IsLoaded()
+
+------------------------------------------------
+-- SETTINGS
+------------------------------------------------
+getgenv().Aimbot = {
+    Enabled = false,
+    TeamCheck = true,
+    Smoothness = 0.15,
+    FOV = 120,
+    AimPart = "Head"
+}
+
+------------------------------------------------
+-- SERVICES
+------------------------------------------------
 local Players = game:GetService("Players")
-local Lighting = game:GetService("Lighting")
+local RunService = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
-
-local player = Players.LocalPlayer
-local enabled = true
-
-------------------------------------------------
--- LIGHTING BOOST
-------------------------------------------------
-local function optimizeLighting(state)
-    Lighting.GlobalShadows = not state
-    Lighting.Brightness = state and 1 or 2
-    Lighting.FogEnd = 9e9
-
-    for _,v in pairs(Lighting:GetDescendants()) do
-        if v:IsA("PostEffect") then
-            v.Enabled = not state
-        end
-    end
-end
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
 
 ------------------------------------------------
--- OBJECT OPTIMIZE
+-- FIND TARGET
 ------------------------------------------------
-local function optimizeObject(obj)
-    if not enabled then return end
+local function getClosest()
+    local closest = nil
+    local shortest = math.huge
 
-    if obj:IsA("BasePart") then
-        obj.Material = Enum.Material.Plastic
-        obj.Reflectance = 0
-        obj.CastShadow = false
-    end
-
-    if obj:IsA("Texture") or obj:IsA("Decal") then
-        obj:Destroy()
-    end
-
-    if obj:IsA("ParticleEmitter")
-    or obj:IsA("Trail")
-    or obj:IsA("Smoke")
-    or obj:IsA("Fire")
-    or obj:IsA("Sparkles") then
-        obj.Enabled = false
-    end
-end
-
-------------------------------------------------
--- REMOVE BEES (players khác)
-------------------------------------------------
-local function hideOtherBees()
     for _,plr in pairs(Players:GetPlayers()) do
-        if plr ~= player and plr.Character then
-            local beesFolder = plr.Character:FindFirstChild("Bees")
-            if beesFolder then
-                beesFolder:Destroy()
+        if plr ~= LocalPlayer
+        and plr.Character
+        and plr.Character:FindFirstChild("HumanoidRootPart")
+        and plr.Character:FindFirstChild(Aimbot.AimPart)
+        and plr.Character.Humanoid.Health > 0 then
+
+            if Aimbot.TeamCheck and plr.Team == LocalPlayer.Team then
+                continue
+            end
+
+            local pos, onScreen = Camera:WorldToViewportPoint(plr.Character[Aimbot.AimPart].Position)
+
+            if onScreen then
+                local dist = (Vector2.new(pos.X,pos.Y) -
+                    Vector2.new(Camera.ViewportSize.X/2,Camera.ViewportSize.Y/2)).Magnitude
+
+                if dist < shortest and dist <= Aimbot.FOV then
+                    shortest = dist
+                    closest = plr
+                end
             end
         end
     end
+
+    return closest
 end
 
 ------------------------------------------------
--- REMOVE TOKENS / EFFECTS
+-- AIM LOOP
 ------------------------------------------------
-local function removeTokens()
-    for _,v in pairs(workspace:GetDescendants()) do
-        local name = string.lower(v.Name)
+RunService.RenderStepped:Connect(function()
+    if not Aimbot.Enabled then return end
 
-        if name:find("token")
-        or name:find("pollen")
-        or name:find("sparkle")
-        or name:find("effect") then
-            if v:IsA("BasePart") or v:IsA("Model") then
-                v:Destroy()
-            end
-        end
-    end
-end
+    local target = getClosest()
+    if target then
+        local head = target.Character[Aimbot.AimPart]
 
-------------------------------------------------
--- APPLY ALL
-------------------------------------------------
-local function applyBoost()
-    optimizeLighting(true)
+        local newCF = CFrame.new(Camera.CFrame.Position, head.Position)
 
-    for _,v in pairs(workspace:GetDescendants()) do
-        optimizeObject(v)
-    end
-
-    hideOtherBees()
-    removeTokens()
-
-    workspace.DescendantAdded:Connect(optimizeObject)
-
-    settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
-end
-
-------------------------------------------------
--- TOGGLE KEY (F8)
-------------------------------------------------
-UIS.InputBegan:Connect(function(input, gpe)
-    if gpe then return end
-
-    if input.KeyCode == Enum.KeyCode.F8 then
-        enabled = not enabled
-
-        if enabled then
-            applyBoost()
-            print("✅ FPS BOOST ON")
-        else
-            optimizeLighting(false)
-            print("❌ FPS BOOST OFF (rejoin to fully restore)")
-        end
+        Camera.CFrame = Camera.CFrame:Lerp(newCF, Aimbot.Smoothness)
     end
 end)
 
 ------------------------------------------------
--- START
+-- FOV CIRCLE
 ------------------------------------------------
-applyBoost()
-print("🚀 Bee Swarm FPS Boost Loaded | Press F8 to toggle")
+local circle = Drawing.new("Circle")
+circle.Color = Color3.fromRGB(0,170,255)
+circle.Thickness = 2
+circle.Filled = false
+circle.Radius = Aimbot.FOV
+circle.Visible = true
+
+RunService.RenderStepped:Connect(function()
+    circle.Position = UIS:GetMouseLocation()
+    circle.Radius = Aimbot.FOV
+end)
+
+------------------------------------------------
+-- GUI
+------------------------------------------------
+local gui = Instance.new("ScreenGui", game.CoreGui)
+gui.Name = "AimbotGUI"
+
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0, 220, 0, 150)
+frame.Position = UDim2.new(0.3,0,0.3,0)
+frame.BackgroundColor3 = Color3.fromRGB(25,25,25)
+frame.Active = true
+frame.Draggable = true
+Instance.new("UICorner", frame)
+
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1,0,0,30)
+title.Text = "🎯 AIMBOT MENU"
+title.TextColor3 = Color3.new(1,1,1)
+title.BackgroundTransparency = 1
+title.TextScaled = true
+
+------------------------------------------------
+-- TOGGLE
+------------------------------------------------
+local toggle = Instance.new("TextButton", frame)
+toggle.Size = UDim2.new(0.9,0,0,30)
+toggle.Position = UDim2.new(0.05,0,0.3,0)
+toggle.Text = "Aimbot : OFF"
+toggle.BackgroundColor3 = Color3.fromRGB(200,60,60)
+toggle.TextColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", toggle)
+
+toggle.MouseButton1Click:Connect(function()
+    Aimbot.Enabled = not Aimbot.Enabled
+
+    if Aimbot.Enabled then
+        toggle.Text = "Aimbot : ON"
+        toggle.BackgroundColor3 = Color3.fromRGB(60,200,100)
+    else
+        toggle.Text = "Aimbot : OFF"
+        toggle.BackgroundColor3 = Color3.fromRGB(200,60,60)
+    end
+end)
+
+------------------------------------------------
+-- FOV +
+------------------------------------------------
+local plus = Instance.new("TextButton", frame)
+plus.Size = UDim2.new(0.4,0,0,30)
+plus.Position = UDim2.new(0.05,0,0.65,0)
+plus.Text = "FOV +"
+plus.BackgroundColor3 = Color3.fromRGB(0,120,255)
+plus.TextColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", plus)
+
+plus.MouseButton1Click:Connect(function()
+    Aimbot.FOV += 20
+end)
+
+------------------------------------------------
+-- FOV -
+------------------------------------------------
+local minus = Instance.new("TextButton", frame)
+minus.Size = UDim2.new(0.4,0,0,30)
+minus.Position = UDim2.new(0.55,0,0.65,0)
+minus.Text = "FOV -"
+minus.BackgroundColor3 = Color3.fromRGB(0,120,255)
+minus.TextColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", minus)
+
+minus.MouseButton1Click:Connect(function()
+    Aimbot.FOV -= 20
+end)
+
+------------------------------------------------
+-- MINI BUTTON
+------------------------------------------------
+local mini = Instance.new("TextButton", gui)
+mini.Size = UDim2.new(0,50,0,50)
+mini.Position = UDim2.new(0.02,0,0.7,0)
+mini.Text = "AIM"
+mini.BackgroundColor3 = Color3.fromRGB(0,120,255)
+mini.TextColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", mini)
+
+mini.MouseButton1Click:Connect(function()
+    frame.Visible = not frame.Visible
+end)
